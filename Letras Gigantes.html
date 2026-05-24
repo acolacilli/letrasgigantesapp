@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculador CNC Hilo Caliente - Mach3</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+        .mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-full flex flex-col selection:bg-amber-500 selection:text-slate-950">
+
+    <!-- Header -->
+    <header class="border-b border-slate-800 bg-slate-900/50 backdrop-blur-md sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="p-2 bg-gradient-to-tr from-amber-500 to-orange-600 rounded-xl text-slate-950 shadow-lg shadow-orange-500/10">
+                    <i data-lucide="zap" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold tracking-tight text-white flex items-center gap-2">
+                        CNC HotWire Pro <span class="text-xs bg-amber-500/10 text-amber-400 px-2 py-0.5 rounded-full border border-amber-500/20 font-normal">Mesa de 1 Metro</span>
+                    </h1>
+                    <p class="text-xs text-slate-400">Calculador de Parámetros para Mach3</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2 text-xs text-slate-400 bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-lg">
+                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                Taller Listo
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 grid grid-cols-1 lg:grid-cols-12 gap-8">
+        
+        <!-- PANEL IZQUIERDO: CONFIGURACIÓN -->
+        <section class="lg:col-span-5 flex flex-col gap-6">
+            <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-xl backdrop-blur-sm relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 rounded-full blur-2xl pointer-events-none"></div>
+                
+                <h2 class="text-md font-bold text-slate-200 mb-5 flex items-center gap-2">
+                    <i data-lucide="sliders" class="w-5 h-5 text-amber-500"></i> Parámetros del Trabajo
+                </h2>
+
+                <!-- Selector de Material -->
+                <div class="mb-5">
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Seleccionar Material</label>
+                    <div class="relative">
+                        <select id="material-select" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-slate-200 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 appearance-none cursor-pointer">
+                            <optgroup label="Polyfan (Poliestireno Extruido - XPS)" class="bg-slate-950">
+                                <option value="polyfan_20" selected>Polyfan 20 mm</option>
+                                <option value="polyfan_25">Polyfan 25 mm</option>
+                                <option value="polyfan_30">Polyfan 30 mm</option>
+                                <option value="polyfan_40">Polyfan 40 mm</option>
+                                <option value="polyfan_50">Polyfan 50 mm</option>
+                            </optgroup>
+                            <optgroup label="Telgopor (Poliestireno Expandido - EPS)" class="bg-slate-950">
+                                <option value="telgopor_p20">Telgopor P20 (Densidad Media - 20 kg/m³)</option>
+                                <option value="telgopor_p30">Telgopor P30 (Alta Densidad - 30 kg/m³)</option>
+                            </optgroup>
+                        </select>
+                        <div class="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
+                            <i data-lucide="chevron-down" class="w-4 h-4"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Diámetro de Nicromio -->
+                <div class="mb-6">
+                    <div class="flex justify-between items-center mb-2">
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400">Diámetro del Hilo de Nicromio</label>
+                        <span id="wire-val-badge" class="text-xs bg-amber-500/10 text-amber-400 font-bold px-2.5 py-0.5 rounded border border-amber-500/20">0.80 mm</span>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <input type="range" id="wire-slider" min="0.3" max="1.5" step="0.05" value="0.8" class="flex-1 accent-amber-500 h-1.5 bg-slate-950 rounded-lg cursor-pointer">
+                        <input type="number" id="wire-input" min="0.3" max="1.5" step="0.05" value="0.8" class="w-20 bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-center text-slate-200 focus:outline-none focus:border-amber-500 font-semibold text-sm">
+                    </div>
+                    <p class="text-[11px] text-slate-500 mt-2">El Nicromio de 0.8 mm es el más recomendado para tensores de 1 metro de ancho.</p>
+                </div>
+
+                <!-- Tarjeta Info Material -->
+                <div id="material-info-card" class="bg-slate-950/50 border border-slate-800/80 rounded-xl p-4 flex gap-3">
+                    <div class="p-2.5 bg-slate-900 rounded-lg text-amber-500 shrink-0 self-start">
+                        <i id="material-icon" data-lucide="layer-3d" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <h4 id="material-title" class="font-bold text-sm text-slate-200">Polyfan 20 mm</h4>
+                        <p id="material-desc" class="text-xs text-slate-400 mt-1 leading-relaxed">Material de alta densidad extruido, ideal para letras corpóreas con terminación lisa. Requiere corte preciso y velocidad estable para evitar deformación por calor acumulado.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MDI CONSOLE GENERATOR -->
+            <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-xl backdrop-blur-sm">
+                <h2 class="text-md font-bold text-slate-200 mb-4 flex items-center gap-2">
+                    <i data-lucide="terminal" class="w-5 h-5 text-amber-400"></i> Generador de Comando MDI
+                </h2>
+                
+                <div class="grid grid-cols-3 gap-3 mb-4">
+                    <div>
+                        <label class="block text-[10px] uppercase font-semibold text-slate-500 mb-1">Eje</label>
+                        <select id="mdi-axis" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-sm text-slate-300 focus:outline-none focus:border-amber-500">
+                            <option value="X">X (Torres)</option>
+                            <option value="Y">Y (Altura)</option>
+                            <option value="XY">Ambos (X e Y)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] uppercase font-semibold text-slate-500 mb-1">Distancia (mm)</label>
+                        <input type="number" id="mdi-distance" value="100" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-sm text-slate-300 focus:outline-none focus:border-amber-500 text-center">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] uppercase font-semibold text-slate-500 mb-1">Modo</label>
+                        <select id="mdi-mode" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-sm text-slate-300 focus:outline-none focus:border-amber-500">
+                            <option value="incremental" selected>Relativo (G91)</option>
+                            <option value="absolute">Absoluto (G90)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="bg-slate-950 border border-slate-800 rounded-xl p-3 flex items-center justify-between mb-4">
+                    <span id="mdi-output" class="mono text-sm text-amber-400 font-bold tracking-wide">G21 G91 G1 X100 F450</span>
+                    <button onclick="copyMDI()" class="p-2 hover:bg-slate-900 rounded-lg text-slate-400 hover:text-white transition-colors duration-155 relative" title="Copiar comando">
+                        <i data-lucide="copy" class="w-4 h-4"></i>
+                        <span id="copy-tooltip" class="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-800 text-slate-200 text-[10px] px-2 py-1 rounded opacity-0 pointer-events-none transition-opacity duration-150 whitespace-nowrap">¡Copiado!</span>
+                    </button>
+                </div>
+                <p class="text-[10px] text-slate-500">Ingresá este comando en la consola MDI de Mach3 para verificar el movimiento calibrado de tu máquina.</p>
+            </div>
+        </section>
+
+        <!-- PANEL DERECHO: RESULTADOS Y SIMULACIÓN -->
+        <section class="lg:col-span-7 flex flex-col gap-6">
+            
+            <!-- TARJETAS DE RESULTADO PRINCIPAL -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <!-- Tarjeta Amperaje -->
+                <div class="bg-gradient-to-br from-slate-900 to-slate-950 border border-slate-800 rounded-2xl p-6 relative overflow-hidden shadow-xl">
+                    <div class="absolute -right-4 -bottom-4 w-24 h-24 bg-orange-500/10 rounded-full blur-xl"></div>
+                    <div class="flex justify-between items-start mb-3">
+                        <span class="text-xs uppercase font-bold text-slate-400 tracking-wider">Temperatura Hilo</span>
+                        <div class="p-1.5 bg-orange-500/10 text-orange-400 rounded-lg border border-orange-500/20">
+                            <i data-lucide="flame" class="w-4 h-4"></i>
+                        </div>
+                    </div>
+                    <div class="flex items-baseline gap-2">
+                        <span id="output-amp" class="text-5xl font-black text-white tracking-tight">3.20</span>
+                        <span class="text-xl font-bold text-orange-400">A</span>
+                    </div>
+                    <p class="text-xs text-slate-500 mt-2">Ajustar dimmer hasta esta lectura en vacío.</p>
+                </div>
+
+                <!-- Tarjeta Velocidad -->
+                <div class="bg-gradient-to-br from-slate-900 to-slate-950 border border-slate-800 rounded-2xl p-6 relative overflow-hidden shadow-xl">
+                    <div class="absolute -right-4 -bottom-4 w-24 h-24 bg-amber-500/10 rounded-full blur-xl"></div>
+                    <div class="flex justify-between items-start mb-3">
+                        <span class="text-xs uppercase font-bold text-slate-400 tracking-wider">Velocidad Avance</span>
+                        <div class="p-1.5 bg-amber-500/10 text-amber-400 rounded-lg border border-amber-500/20">
+                            <i data-lucide="gauge" class="w-4 h-4"></i>
+                        </div>
+                    </div>
+                    <div class="flex items-baseline gap-2">
+                        <span id="output-feed" class="text-5xl font-black text-white tracking-tight">450</span>
+                        <span class="text-sm font-bold text-amber-400 uppercase tracking-wider">mm/min</span>
+                    </div>
+                    <p class="text-xs text-slate-500 mt-2">Comando <span class="mono bg-slate-950 px-1 py-0.5 rounded text-amber-300">F</span> en tu código G de Mach3.</p>
+                </div>
+            </div>
+
+            <!-- SIMULADOR INTERACTIVO (CANVAS) -->
+            <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-xl">
+                <div class="flex justify-between items-center mb-4">
+                    <div>
+                        <h3 class="text-md font-bold text-slate-200 flex items-center gap-2">
+                            <i data-lucide="eye" class="w-5 h-5 text-indigo-400"></i> Comportamiento del Corte
+                        </h3>
+                        <p class="text-xs text-slate-400">Simulación interactiva del comportamiento térmico del hilo caliente</p>
+                    </div>
+                    <span id="kerf-badge" class="text-xs bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 px-2.5 py-1 rounded-lg font-semibold">Kerf: 1.50 mm</span>
+                </div>
+
+                <!-- Contenedor del Canvas -->
+                <div class="bg-slate-950 rounded-xl border border-slate-800/80 p-1 flex justify-center items-center overflow-hidden h-64 relative">
+                    <canvas id="simulation-canvas" class="w-full h-full block"></canvas>
+                </div>
+
+                <!-- Leyenda del Simulador -->
+                <div class="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-slate-800/60 text-center">
+                    <div>
+                        <span class="block text-[10px] uppercase font-bold text-slate-500">Pandeo (Panza)</span>
+                        <span id="sim-lag" class="text-xs font-semibold text-rose-400">0.8 mm (Bajo)</span>
+                    </div>
+                    <div>
+                        <span class="block text-[10px] uppercase font-bold text-slate-500">Evaporación</span>
+                        <span id="sim-melt" class="text-xs font-semibold text-indigo-300">Excelente</span>
+                    </div>
+                    <div>
+                        <span class="block text-[10px] uppercase font-bold text-slate-500">Calidad de Cara</span>
+                        <span id="sim-quality" class="text-xs font-semibold text-emerald-400">Excelente</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- GUÍA DE AJUSTE RÁPIDO (TROUBLESHOOTING) -->
+            <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-xl">
+                <h3 class="text-sm font-bold text-slate-200 mb-4 flex items-center gap-2">
+                    <i data-lucide="wrench" class="w-5 h-5 text-emerald-500"></i> Asistente de Afinación en Taller
+                </h3>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bg-slate-950/40 border border-slate-800/80 p-3.5 rounded-xl flex gap-3">
+                        <div class="p-2 bg-rose-500/10 rounded-lg text-rose-400 shrink-0 self-start">
+                            <i data-lucide="trending-down" class="w-4 h-4"></i>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-xs text-slate-300">Si el hilo hace "panza" (Arco en el medio)</h4>
+                            <p class="text-[11px] text-slate-400 mt-1 leading-relaxed">El hilo se está arrastrando físicamente por falta de temperatura o velocidad excesiva. <strong>Bajá 50 mm/min</strong> en Mach3 o <strong>subí 0.2A</strong> en el dimmer.</p>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-950/40 border border-slate-800/80 p-3.5 rounded-xl flex gap-3">
+                        <div class="p-2 bg-amber-500/10 rounded-lg text-amber-400 shrink-0 self-start">
+                            <i data-lucide="scissors" class="w-4 h-4"></i>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-xs text-slate-300">Esquinas derretidas o redondeadas</h4>
+                            <p class="text-[11px] text-slate-400 mt-1 leading-relaxed">El calor se acumula al desacelerar. Activá el modo <strong>G64 (Constant Velocity)</strong> en Mach3 o <strong>subí la velocidad de avance</strong> un 10%.</p>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-950/40 border border-slate-800/80 p-3.5 rounded-xl flex gap-3">
+                        <div class="p-2 bg-indigo-500/10 rounded-lg text-indigo-400 shrink-0 self-start">
+                            <i data-lucide="columns" class="w-4 h-4"></i>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-xs text-slate-300">Seccionamiento se curva (Banana)</h4>
+                            <p class="text-[11px] text-slate-400 mt-1 leading-relaxed">Liberación de tensión interna. Colocá pequeñas cuñas en la ranura a medida que avance el corte y cortá siempre a velocidades superiores a <strong>400 mm/min</strong>.</p>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-950/40 border border-slate-800/80 p-3.5 rounded-xl flex gap-3">
+                        <div class="p-2 bg-emerald-500/10 rounded-lg text-emerald-400 shrink-0 self-start">
+                            <i data-lucide="activity" class="w-4 h-4"></i>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-xs text-slate-300">Acabado estriado (marcas verticales)</h4>
+                            <p class="text-[11px] text-slate-400 mt-1 leading-relaxed">El hilo está vibrando. Aumentá ligeramente la tensión mecánica del resorte o bajá un poco la velocidad para estabilizar el Nicromio.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+    </main>
+
+    <footer class="border-t border-slate-900 bg-slate-950 py-4 text-center text-xs text-slate-500">
+        <p>Herramienta diseñada para cortadoras CNC de hilo caliente. Mach3 Direct G-code compliant. 2026</p>
+    </footer>
+
+    <!-- LOGIC SCRIPT -->
+    <script>
+        // Base de Datos de Materiales con sus coeficientes de resistencia y transmisión térmica
+        const MATERIAL_DB = {
+            polyfan_20: {
+                title: "Polyfan 20 mm",
+                desc: "Plancha XPS de 20mm de espesor. Muy densa. Requiere amperaje medio para evaporar el material limpiamente sin expandir el calor en exceso.",
+                baseFeed: 400,
+                baseAmp: 3.2,
+                densityFactor: 1.05,
+                kerfFactor: 1.4,
+                icon: "layer-3d"
+            },
+            polyfan_25: {
+                title: "Polyfan 25 mm",
+                desc: "Plancha XPS de 25mm de espesor. Espesor clásico de cartelería. Requiere un avance un poco más lento para disipar el gas derretido.",
+                baseFeed: 370,
+                baseAmp: 3.3,
+                densityFactor: 1.08,
+                kerfFactor: 1.5,
+                icon: "layer-3d"
+            },
+            polyfan_30: {
+                title: "Polyfan 30 mm",
+                desc: "Plancha XPS de 30mm. Excelente para molduras de tamaño mediano. Requiere velocidad moderada para mantener la planeidad.",
+                baseFeed: 340,
+                baseAmp: 3.4,
+                densityFactor: 1.12,
+                kerfFactor: 1.6,
+                icon: "layer-3d"
+            },
+            polyfan_40: {
+                title: "Polyfan 40 mm",
+                desc: "Plancha XPS de 40mm. Espesor de alto relieve. Cuidado con el pandeo en el centro de las letras.",
+                baseFeed: 310,
+                baseAmp: 3.6,
+                densityFactor: 1.18,
+                kerfFactor: 1.8,
+                icon: "layers"
+            },
+            polyfan_50: {
+                title: "Polyfan 50 mm",
+                desc: "Plancha XPS de 50mm. Máxima densidad comercial para relieves corpóreos individuales. El avance debe ser pausado y controlado.",
+                baseFeed: 270,
+                baseAmp: 3.8,
+                densityFactor: 1.25,
+                kerfFactor: 2.0,
+                icon: "layers"
+            },
+            telgopor_p20: {
+                title: "Telgopor P20 (EPS 20kg/m³)",
+                desc: "Poliestireno de densidad media para empaques y molduras de encofrado. Ofrece baja resistencia térmica pero requiere velocidad para que no queden huecos.",
+                baseFeed: 450,
+                baseAmp: 3.0,
+                densityFactor: 0.85,
+                kerfFactor: 1.5,
+                icon: "box"
+            },
+            telgopor_p30: {
+                title: "Telgopor P30 (EPS 30kg/m³)",
+                desc: "Poliestireno de alta densidad. Comportamiento muy similar a la madera balsa al cortar. Deja terminaciones casi pulidas si se corta frío.",
+                baseFeed: 320,
+                baseAmp: 3.5,
+                densityFactor: 1.15,
+                kerfFactor: 1.7,
+                icon: "grid"
+            }
+        };
+
+        // DOM Elements
+        const materialSelect = document.getElementById('material-select');
+        const wireSlider = document.getElementById('wire-slider');
+        const wireInput = document.getElementById('wire-input');
+        const wireValBadge = document.getElementById('wire-val-badge');
+        
+        const materialTitle = document.getElementById('material-title');
+        const materialDesc = document.getElementById('material-desc');
+        const materialIcon = document.getElementById('material-icon');
+        
+        const outputAmp = document.getElementById('output-amp');
+        const outputFeed = document.getElementById('output-feed');
+        
+        const mdiAxis = document.getElementById('mdi-axis');
+        const mdiDistance = document.getElementById('mdi-distance');
+        const mdiMode = document.getElementById('mdi-mode');
+        const mdiOutput = document.getElementById('mdi-output');
+        
+        const kerfBadge = document.getElementById('kerf-badge');
+        const simLag = document.getElementById('sim-lag');
+        const simMelt = document.getElementById('sim-melt');
+        const simQuality = document.getElementById('sim-quality');
+        
+        const canvas = document.getElementById('simulation-canvas');
+        const ctx = canvas.getContext('2d');
+
+        // State variables
+        let calculatedAmp = 3.2;
+        let calculatedFeed = 450;
+        let currentKerf = 1.50;
+
+        // Sync slider and input
+        wireSlider.addEventListener('input', (e) => {
+            wireInput.value = parseFloat(e.target.value).toFixed(2);
+            updateCalculations();
+        });
+
+        wireInput.addEventListener('input', (e) => {
+            let val = parseFloat(e.target.value);
+            if (val >= 0.3 && val <= 1.5) {
+                wireSlider.value = val;
+                updateCalculations();
+            }
+        });
+
+        materialSelect.addEventListener('change', updateCalculations);
+        mdiAxis.addEventListener('change', updateMDI);
+        mdiDistance.addEventListener('input', updateMDI);
+        mdiMode.addEventListener('change', updateMDI);
+
+        // Core Calculation Engine
+        function updateCalculations() {
+            const materialKey = materialSelect.value;
+            const material = MATERIAL_DB[materialKey];
+            const d = parseFloat(wireSlider.value);
+            
+            // Actualizar textos e ícono de material
+            materialTitle.innerText = material.title;
+            materialDesc.innerText = material.desc;
+            wireValBadge.innerText = `${d.toFixed(2)} mm`;
+            
+            // Cambiar ícono de Lucide dinámicamente si es posible
+            const iconName = material.icon;
+            materialIcon.setAttribute('data-lucide', iconName);
+            if (window.lucide) window.lucide.createIcons();
+
+            // Lógica física de cálculo:
+            // 1. Amperaje: El amperaje requerido aumenta en proporción de I ~ d^1.3 (más masa que calentar)
+            // y depende de la densidad del material seleccionado.
+            const rawAmp = material.baseAmp * Math.pow(d / 0.8, 1.3);
+            calculatedAmp = Math.round(rawAmp * 100) / 100;
+
+            // 2. Velocidad de Avance (Feedrate): Alambre más grueso evapora un volumen mayor por segundo,
+            // requiriendo bajar ligeramente el avance o dar mucha más energía térmica.
+            const rawFeed = material.baseFeed * Math.pow(0.8 / d, 0.25);
+            calculatedFeed = Math.round(rawFeed / 10) * 10; // Redondear a múltiplos de 10
+
+            // 3. Estimación del Kerf (Ancho de corte debido a la radiación térmica)
+            const rawKerf = material.kerfFactor * d * (calculatedAmp / material.baseAmp);
+            currentKerf = Math.round(rawKerf * 100) / 100;
+
+            // Renderizar Resultados
+            outputAmp.innerText = calculatedAmp.toFixed(2);
+            outputFeed.innerText = calculatedFeed;
+            kerfBadge.innerText = `Kerf: ${currentKerf.toFixed(2)} mm`;
+
+            updateMDI();
+            drawSimulation();
+        }
+
+        // MDI Command Generator
+        function updateMDI() {
+            const axis = mdiAxis.value;
+            const dist = mdiDistance.value || 0;
+            const mode = mdiMode.value;
+            
+            let gcode = "G21 "; // Siempre milímetros primero
+            
+            if (mode === "incremental") {
+                gcode += "G91 "; // Relativo
+            } else {
+                gcode += "G90 "; // Absoluto
+            }
+            
+            if (axis === "XY") {
+                gcode += `G1 X${dist} Y${dist} F${calculatedFeed}`;
+            } else {
+                gcode += `G1 ${axis}${dist} F${calculatedFeed}`;
+            }
+            
+            mdiOutput.innerText = gcode;
+        }
+
+        // Copy Clipboard Helper
+        function copyMDI() {
+            const textToCopy = mdiOutput.innerText;
+            
+            // Fallback robusto para iframes / HTTPS restricto
+            const el = document.createElement('textarea');
+            el.value = textToCopy;
+            el.setAttribute('readonly', '');
+            el.style.position = 'absolute';
+            el.style.left = '-9999px';
+            document.body.appendChild(el);
+            el.select();
+            
+            try {
+                document.execCommand('copy');
+                const tooltip = document.getElementById('copy-tooltip');
+                tooltip.classList.remove('opacity-0');
+                tooltip.classList.add('opacity-100');
+                setTimeout(() => {
+                    tooltip.classList.remove('opacity-100');
+                    tooltip.classList.add('opacity-0');
+                }, 1200);
+            } catch (err) {
+                console.error('No se pudo copiar el texto', err);
+            }
+            document.body.removeChild(el);
+        }
+
+        // Canvas Rendering (Simulation Visual)
+        function resizeCanvas() {
+            const rect = canvas.parentNode.getBoundingClientRect();
+            canvas.width = rect.width * window.devicePixelRatio;
+            canvas.height = rect.height * window.devicePixelRatio;
+            canvas.style.width = '100%';
+            canvas.style.height = '100%';
+            drawSimulation();
+        }
+
+        let animationFrame;
+        let time = 0;
+
+        function drawSimulation() {
+            if (!canvas.width) return;
+            const w = canvas.width;
+            const h = canvas.height;
+            const ratio = window.devicePixelRatio;
+
+            ctx.clearRect(0, 0, w, h);
+            ctx.save();
+            ctx.scale(ratio, ratio);
+
+            const cw = w / ratio;
+            const ch = h / ratio;
+
+            // 1. Dibujar el bloque de poliestireno cortado
+            ctx.fillStyle = '#0f172a'; // Fondo de espuma sin cortar
+            ctx.fillRect(40, ch/2 - 50, cw - 80, 100);
+
+            // Dibujar el corte ya realizado
+            ctx.fillStyle = '#020617'; // Surco ya cortado
+            const currentKerfPixels = Math.max(8, currentKerf * 10);
+            
+            ctx.fillRect(40, ch/2 - currentKerfPixels/2, cw/2, currentKerfPixels);
+
+            // 2. Líneas del bloque (Perspectiva simple de corte plano)
+            ctx.strokeStyle = '#334155';
+            ctx.lineWidth = 1.5;
+            ctx.strokeRect(40, ch/2 - 50, cw - 80, 100);
+
+            // 3. Dibujar la "Panza" (Lag del hilo caliente)
+            // Calculamos lag basado en el material y velocidad
+            const materialKey = materialSelect.value;
+            const material = MATERIAL_DB[materialKey];
+            const lagSeverity = (calculatedFeed / 500) * (materialKey.includes('polyfan') ? 2.5 : 1.2);
+            
+            ctx.beginPath();
+            ctx.strokeStyle = '#f97316'; // Hilo caliente color naranja incandescente
+            ctx.lineWidth = Math.max(1.5, parseFloat(wireSlider.value) * 3);
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = '#f97316';
+
+            // Puntos extremos (Torres físicas)
+            const topY = ch/2 - 65;
+            const bottomY = ch/2 + 65;
+            const entryX = cw/2 + 20;
+
+            // Curva de Bezier para representar la deformación en el medio
+            ctx.moveTo(entryX, topY);
+            ctx.quadraticCurveTo(entryX - (15 * lagSeverity), ch/2, entryX, bottomY);
+            ctx.stroke();
+            ctx.restore();
+
+            // Actualizar etiquetas cualitativas
+            if (lagSeverity < 1.3) {
+                simLag.innerText = "Mínimo (Corte Plano)";
+                simLag.className = "text-xs font-semibold text-emerald-400";
+            } else if (lagSeverity < 2.2) {
+                simLag.innerText = "Moderado (Ok para rectos)";
+                simLag.className = "text-xs font-semibold text-amber-400";
+            } else {
+                simLag.innerText = "Alto (¡Reducir avance!)";
+                simLag.className = "text-xs font-semibold text-rose-400";
+            }
+
+            // Calidad de cara estimada
+            const thermalQuality = (calculatedFeed / (calculatedAmp * 150));
+            if (thermalQuality > 0.8 && thermalQuality < 1.4) {
+                simQuality.innerText = "Excelente (Liso)";
+                simQuality.className = "text-xs font-semibold text-emerald-400";
+                simMelt.innerText = "Radiante Perfecto";
+                simMelt.className = "text-xs font-semibold text-indigo-300";
+            } else if (thermalQuality <= 0.8) {
+                simQuality.innerText = "Fusión Excesiva";
+                simQuality.className = "text-xs font-semibold text-rose-400";
+                simMelt.innerText = "Demasiado Caliente";
+                simMelt.className = "text-xs font-semibold text-amber-400";
+            } else {
+                simQuality.innerText = "Estrías Mecánicas";
+                simQuality.className = "text-xs font-semibold text-amber-400";
+                simMelt.innerText = "Corte Físico (Arrastrado)";
+                simMelt.className = "text-xs font-semibold text-rose-400";
+            }
+        }
+
+        // Initialize On Load
+        window.addEventListener('load', () => {
+            if (window.lucide) window.lucide.createIcons();
+            resizeCanvas();
+            updateCalculations();
+        });
+
+        window.addEventListener('resize', resizeCanvas);
+    </script>
+</body>
+</html>
